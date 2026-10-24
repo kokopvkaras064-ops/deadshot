@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deadshot.io Tournament Manager</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkbg: '#0b0f19',
+                        darkcard: '#131b2e',
+                        darkaccent: '#1e293b',
+                        deadshotRed: '#ff2a5f',
+                        deadshotCyan: '#00f0ff',
+                        deadshotGold: '#ffb703',
+                        deadshotGreen: '#10b981'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'Segoe UI', 'Tahoma', 'sans-serif'],
+                        mono: ['Courier New', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap');
+
+        body {
+            background-color: #080c14;
+            color: #e2e8f0;
+            font-family: 'Inter', sans-serif;
+            background-image:
+                radial-gradient(circle at 15% 15%, rgba(255, 42, 95, 0.08) 0%, transparent 40%),
+                radial-gradient(circle at 85% 85%, rgba(0, 240, 255, 0.08) 0%, transparent 40%);
+            background-attachment: fixed;
+        }
+
+        .glass-panel {
+            background: rgba(19, 27, 46, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .nav-btn.active {
+            background: linear-gradient(135deg, rgba(255, 42, 95, 0.25), rgba(0, 240, 255, 0.2));
+            border-color: rgba(0, 240, 255, 0.6);
+            color: #ffffff;
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.25);
+        }
+
+        .auth-tab-btn.active {
+            background: linear-gradient(135deg, #ff2a5f, #ffb703);
+            color: #080c14;
+            font-weight: 900;
+            box-shadow: 0 0 15px rgba(255, 42, 95, 0.35);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #080c14;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1e293b;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #ff2a5f;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between antialiased selection:bg-red-500 selection:text-white">
+
+    <!-- Notification Toast & Banner Container -->
+    <div id="toast-container" class="fixed top-5 left-1/2 -translate-x-1/2 z-50 flex flex-col gap-2 w-full max-w-md px-4 pointer-events-none"></div>
+
+    <!-- Live Match Alarm Banner -->
+    <div id="live-match-banner" class="hidden fixed bottom-5 right-5 z-50 max-w-sm glass-panel bg-gradient-to-r from-red-950/90 to-gray-900/90 border-2 border-red-500 p-4 rounded-2xl shadow-[0_0_30px_rgba(255,42,95,0.4)] animate-bounce">
+        <div class="flex items-start gap-3">
+            <div class="text-3xl animate-pulse">🚨</div>
+            <div class="flex-1">
+                <h4 class="font-black text-red-400 text-sm">تنبيه مواجهة حية!</h4>
+                <p id="banner-match-text" class="text-xs text-white mt-1">حان موعد مباراتك القادمة في البطولة!</p>
+                <div class="mt-2 flex gap-2">
+                    <button onclick="dismissBanner()" class="px-3 py-1 bg-red-600 hover:bg-red-500 text-white rounded text-xs font-bold transition">فهمت، جاهز للقتال!</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mandatory Login Wall Screen (Visible when NOT Logged In) -->
+    <div id="login-wall-screen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#080c14] bg-opacity-95 backdrop-blur-xl">
+        <div class="glass-panel bg-darkcard p-6 sm:p-8 rounded-3xl max-w-md w-full border border-gray-800 shadow-2xl space-y-5 relative overflow-hidden">
+
+            <!-- Logo & Brand Header -->
+            <div class="text-center space-y-2">
+                <div class="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-tr from-red-600 via-amber-500 to-cyan-400 p-0.5 shadow-[0_0_25px_rgba(255,42,95,0.4)]">
+                    <div class="w-full h-full bg-darkbg rounded-[14px] flex items-center justify-center text-2xl">🎯</div>
+                </div>
+                <h2 class="text-2xl font-black italic tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-red-500 via-amber-400 to-cyan-400">
+                    DEADSHOT.IO
+                </h2>
+                <p id="modal-subtitle" class="text-xs text-gray-400">سجل دخولك أو أنشئ حساباً جديداً للوصول إلى لوحة البطولات</p>
+            </div>
+
+            <!-- Top Switcher Bar for Auth Mode (Login vs Sign Up) -->
+            <div class="grid grid-cols-2 bg-gray-950/80 p-1.5 rounded-2xl border border-gray-800 text-center gap-1">
+                <button type="button" onclick="setAuthMode('login')" id="auth-tab-login" class="auth-tab-btn active py-2.5 rounded-xl text-xs transition duration-200 text-gray-300">
+                    🔑 تسجيل الدخول
+                </button>
+                <button type="button" onclick="setAuthMode('register')" id="auth-tab-register" class="auth-tab-btn py-2.5 rounded-xl text-xs transition duration-200 text-gray-300">
+                    ✨ إنشاء حساب جديد
+                </button>
+            </div>
+
+            <!-- Form -->
+            <form onsubmit="handleAuthSubmit(event)" class="space-y-4">
+                <div class="space-y-1">
+                    <label class="text-xs font-bold text-gray-300">اسم المستخدم</label>
+                    <input type="text" id="auth-username" required placeholder="اسم المستخدم..." class="w-full bg-darkbg border border-gray-700 p-3 rounded-xl text-sm focus:border-red-500 outline-none text-white">
+                </div>
+
+                <div class="space-y-1">
+                    <label class="text-xs font-bold text-gray-300">كلمة المرور</label>
+                    <input type="password" id="auth-password" required placeholder="كلمة المرور..." class="w-full bg-darkbg border border-gray-700 p-3 rounded-xl text-sm focus:border-red-500 outline-none text-white">
+                    <p id="password-hint-text" class="text-[10px] text-gray-500">حروف وأرقام فقط، أكثر من 5 خانات</p>
+                </div>
+
+                <button type="submit" id="auth-submit-btn" class="w-full py-3 bg-gradient-to-r from-red-600 via-amber-500 to-red-600 hover:opacity-90 text-white font-black rounded-xl text-sm transition shadow-lg">
+                    تسجيل الدخول
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main Application Container (Hidden until logged in) -->
+    <div id="main-app-wrapper" class="hidden max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 flex-1 flex flex-col justify-between">
+        <div>
+            <!-- Header & Top Navigation Bar -->
+            <header class="flex flex-wrap justify-between items-center pb-5 border-b border-gray-800/80 mb-6 gap-4">
+                <!-- Brand Logo -->
+                <div class="flex items-center gap-3">
+                    <div class="w-11 h-11 rounded-xl bg-gradient-to-tr from-red-600 to-amber-500 p-0.5 shadow-[0_0_20px_rgba(255,42,95,0.4)]">
+                        <div class="w-full h-full bg-darkbg rounded-[10px] flex items-center justify-center text-xl font-black text-red-500">
+                            🎯
+                        </div>
+                    </div>
+                    <div>
+                        <h1 class="text-2xl font-black italic tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-red-500 via-amber-400 to-cyan-400">
+                            DEADSHOT.IO
+                        </h1>
+                        <p class="text-[10px] text-gray-400 font-mono tracking-widest uppercase">Tournament Platform</p>
+                    </div>
+                </div>
+
+                <!-- Top Navigation Tabs Bar -->
+                <nav class="flex items-center gap-1.5 bg-gray-900/90 p-1.5 rounded-2xl border border-gray-800 backdrop-blur-md overflow-x-auto max-w-full">
+                    <button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-btn active px-3.5 py-2 rounded-xl font-bold text-xs sm:text-sm transition-all duration-200 flex items-center gap-2 text-gray-300 hover:text-white border border-transparent">
+                        <span>📊</span> <span>الرئيسية والفرق</span>
+                    </button>
+                    <button onclick="switchTab('tournaments')" id="nav-tournaments" class="nav-btn px-3.5 py-2 rounded-xl font-bold text-xs sm:text-sm transition-all duration-200 flex items-center gap-2 text-gray-300 hover:text-white border border-transparent">
+                        <span>🏆</span> <span>المسابقات والمواجهات الحالية</span>
+                    </button>
+                    <button onclick="switchTab('profile')" id="nav-profile" class="nav-btn px-3.5 py-2 rounded-xl font-bold text-xs sm:text-sm transition-all duration-200 flex items-center gap-2 text-gray-300 hover:text-white border border-transparent">
+                        <span>👤</span> <span>معلومات الحساب</span>
+                    </button>
+
+                    <!-- Restricted Host Control Panel Tab -->
+                    <button onclick="switchTab('host')" id="nav-host" class="nav-btn px-4 py-2 rounded-xl font-bold text-xs sm:text-sm transition-all duration-300 flex items-center gap-2 text-amber-300 bg-gradient-to-r from-amber-500/15 via-purple-600/20 to-amber-500/15 border border-amber-500/50 hover:border-amber-400 hover:shadow-[0_0_20px_rgba(255,183,3,0.35)] hidden">
+                        <span class="animate-pulse">👑</span>
+                        <span class="bg-clip-text text-transparent bg-gradient-to-r from-amber-300 via-purple-300 to-amber-300 font-black">لوحة الهوست</span>
+                        <span id="host-tab-badge" class="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[9px] px-1.5 py-0.5 rounded font-mono uppercase">HOST</span>
+                    </button>
+                </nav>
+
+                <!-- User Status & Auth Buttons -->
+                <div id="user-status-bar" class="flex items-center gap-3">
+                    <!-- Injected via JS -->
+                </div>
+            </header>
+
+            <!-- TAB 1: Dashboard & Teams (الرئيسية والفرق) -->
+            <div id="tab-dashboard" class="tab-content space-y-6">
+                <!-- Hero Player Team Status Card -->
+                <div id="my-team-card-container">
+                    <!-- Injected via JS -->
+                </div>
+
+                <!-- Leaderboard Grid -->
+                <div class="glass-panel p-6 rounded-3xl space-y-4">
+                    <div class="flex justify-between items-center border-b border-gray-800 pb-4">
+                        <div>
+                            <h3 class="text-lg font-black text-white flex items-center gap-2">
+                                <span>⚔️</span> ترتيب الفرق المنافسة والنقاط
+                            </h3>
+                            <p class="text-xs text-gray-400">نظرة عامة على قائمة الفرق والتنافس على المركز الأول</p>
+                        </div>
+                        <span class="text-xs font-mono bg-cyan-950 text-cyan-400 border border-cyan-500/30 px-3 py-1 rounded-full">
+                            Live Leaderboard
+                        </span>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="teams-leaderboard-grid">
+                        <!-- Dynamic team cards -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 2: Active Tournaments & Match Rounds -->
+            <div id="tab-tournaments" class="tab-content hidden space-y-6">
+                <div class="glass-panel p-6 rounded-3xl space-y-6">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-800 pb-4">
+                        <div>
+                            <h2 class="text-xl font-black text-white flex items-center gap-2">
+                                <span>🥊</span> جدول المواجهات والجولات
+                            </h2>
+                            <p class="text-xs text-gray-400">تتبع نتائج المباريات، التوقيتات، وجداول التأهل الحالية</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
+                            <span class="text-xs text-emerald-400 font-bold">البطولة شغالـة الآن</span>
+                        </div>
+                    </div>
+
+                    <div id="public-rounds-list" class="space-y-6">
+                        <!-- Public view of rounds -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 3: Account Profile -->
+            <div id="tab-profile" class="tab-content hidden space-y-6">
+                <div class="max-w-2xl mx-auto glass-panel p-8 rounded-3xl space-y-6">
+                    <div class="text-center space-y-2 border-b border-gray-800 pb-6">
+                        <div class="w-20 h-20 mx-auto rounded-3xl bg-gradient-to-tr from-red-600 via-amber-500 to-cyan-500 p-1 shadow-lg">
+                            <div class="w-full h-full bg-darkcard rounded-[22px] flex items-center justify-center text-3xl">
+                                👤
+                            </div>
+                        </div>
+                        <h3 id="profile-username" class="text-2xl font-black text-white">--</h3>
+                        <div id="profile-role-badge">--</div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="bg-gray-900/60 p-4 rounded-2xl border border-gray-800/80">
+                            <span class="text-xs text-gray-400 block">الفريق الحالي</span>
+                            <span id="profile-team-name" class="text-lg font-bold text-cyan-400">--</span>
+                        </div>
+                        <div class="bg-gray-900/60 p-4 rounded-2xl border border-gray-800/80">
+                            <span class="text-xs text-gray-400 block">نقاط الفريق</span>
+                            <span id="profile-team-points" class="text-lg font-bold text-amber-400">--</span>
+                        </div>
+                    </div>
+
+                    <div class="bg-gray-900/40 p-4 rounded-2xl border border-gray-800/80 space-y-3">
+                        <h4 class="text-sm font-bold text-gray-300">تغيير كلمة المرور</h4>
+                        <div class="space-y-2">
+                            <input type="password" id="change-pass-input" placeholder="كلمة المرور الجديدة (حروف وأرقام فقط، > 5)" class="w-full bg-darkbg border border-gray-700 p-2.5 rounded-xl text-sm focus:border-cyan-400 outline-none text-white">
+                            <button onclick="changePassword()" class="w-full py-2.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:opacity-90 text-white font-bold rounded-xl text-xs transition">
+                                حفظ كلمة المرور الجديدة
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 4: Host Control Panel (لوحة الهوست) -->
+            <div id="tab-host" class="tab-content hidden space-y-6">
+                <!-- Access Denied Guard Box -->
+                <div id="host-denied-view" class="hidden glass-panel p-10 rounded-3xl text-center space-y-4 border-red-500/40 max-w-lg mx-auto">
+                    <div class="text-6xl">🚫</div>
+                    <h3 class="text-2xl font-black text-red-400">منع الوصول</h3>
+                    <p class="text-gray-300 text-sm leading-relaxed">هذه اللوحة مخصصة فقط لمنظمي البطولة (Hosts). لا تملك التصريح اللازم لرؤيتها.</p>
+                    <button onclick="switchTab('dashboard')" class="px-6 py-2.5 bg-gray-800 hover:bg-gray-700 text-white font-bold rounded-xl text-xs transition">العودة للرئيسية</button>
+                </div>
+
+                <!-- Allowed Host View -->
+                <div id="host-allowed-view" class="space-y-6">
+                    <!-- Host Top Header Banner -->
+                    <div class="glass-panel p-6 rounded-3xl border-amber-500/30 bg-gradient-to-r from-purple-950/40 via-amber-950/20 to-gray-900/60 relative overflow-hidden">
+                        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative z-10">
+                            <div>
+                                <div class="flex items-center gap-3">
+                                    <h2 class="text-2xl font-black text-white flex items-center gap-2">
+                                        <span>👑</span> لوحة تحكم المنظمين (Host)
+                                    </h2>
+                                    <span id="host-role-pill" class="px-3 py-1 rounded-full text-xs font-black tracking-wider uppercase bg-amber-500/20 text-amber-300 border border-amber-500/50">
+                                        --
+                                    </span>
+                                </div>
+                                <p id="secondary-perm-notice" class="text-xs text-gray-300 mt-1">إدارة الفرق، اللاعبين، الجولات والتوقيتات، وإدارة صلاحيات المنظمين.</p>
+                            </div>
+
+                            <!-- Host Sub Navigation -->
+                            <div class="flex items-center gap-2 bg-gray-950/80 p-1.5 rounded-2xl border border-gray-800">
+                                <button onclick="switchHostSubTab('teams')" id="subnav-teams" class="subnav-btn px-3.5 py-2 rounded-xl font-bold text-xs transition bg-amber-500 text-gray-950">
+                                    👥 الفرق واللاعبين
+                                </button>
+                                <button onclick="switchHostSubTab('rounds')" id="subnav-rounds" class="subnav-btn px-3.5 py-2 rounded-xl font-bold text-xs transition text-gray-400 hover:text-white">
+                                    🥊 الجولات والمباريات
+                                </button>
+                                <button onclick="switchHostSubTab('permissions')" id="subnav-permissions" class="subnav-btn px-3.5 py-2 rounded-xl font-bold text-xs transition text-gray-400 hover:text-white hidden">
+                                    🛡️ إدارة الهوستات والصلاحيات
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- HOST SUB-TAB 1: Teams & Players Management -->
+                    <div id="host-sub-teams" class="host-sub-content space-y-6">
+                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            <!-- Create New Team Card -->
+                            <div id="host-create-team-card" class="glass-panel p-6 rounded-3xl space-y-4 h-fit">
+                                <h3 class="text-md font-bold text-white flex items-center gap-2">
+                                    <span>➕</span> إضافة فريق جديد
+                                </h3>
+                                <div class="space-y-3">
+                                    <input type="text" id="new-team-input" placeholder="اسم الفريق الجديد..." class="w-full bg-darkbg border border-gray-700 p-3 rounded-xl text-sm focus:border-amber-400 outline-none text-white">
+                                    <button onclick="createNewTeam()" class="w-full py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:opacity-90 text-gray-950 font-black rounded-xl text-xs transition shadow-md">
+                                        إنشاء الفريق
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Manage Teams & Members -->
+                            <div id="host-manage-teams-wrapper" class="lg:col-span-2 glass-panel p-6 rounded-3xl space-y-4">
+                                <h3 class="text-md font-bold text-white flex items-center gap-2">
+                                    <span>🛠️</span> التحكم بالفرق واللاعبين النقاط
+                                </h3>
+
+                                <div id="host-teams-management-list" class="space-y-4">
+                                    <!-- Dynamic teams management rows -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- HOST SUB-TAB 2: Rounds & Matches Management -->
+                    <div id="host-sub-rounds" class="host-sub-content hidden space-y-6">
+                        <div class="flex justify-between items-center flex-wrap gap-4 glass-panel p-4 rounded-2xl">
+                            <div>
+                                <h3 class="text-md font-bold text-white">إدارة الجولات والتوقيتات (Rounds)</h3>
+                                <p class="text-xs text-gray-400">إضافة جولة جديدة، تغيير اسمها، أو حذفها وتحديد مواعيد المباريات</p>
+                            </div>
+                            <button id="add-round-btn" onclick="addNewRound()" class="px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-500 hover:opacity-90 text-white font-bold rounded-xl text-xs transition shadow-lg flex items-center gap-2">
+                                <span>➕</span> إضافة جولة جديدة
+                            </button>
+                        </div>
+
+                        <div id="host-rounds-container" class="space-y-6">
+                            <!-- Dynamic Rounds Manager -->
+                        </div>
+                    </div>
+
+                    <!-- HOST SUB-TAB 3: Granular Permissions Control (PRIMARY HOST EXCLUSIVE) -->
+                    <div id="host-sub-permissions" class="host-sub-content hidden space-y-6">
+                        <div class="glass-panel p-6 rounded-3xl space-y-6 border-amber-500/30">
+                            <div class="flex justify-between items-center flex-wrap gap-4 border-b border-gray-800 pb-4">
+                                <div>
+                                    <h3 class="text-lg font-bold text-amber-300 flex items-center gap-2">
+                                        <span>🛡️</span> إدارة منظمي البطولة وصلاحيات الـ Secondary Host
+                                    </h3>
+                                    <p class="text-xs text-gray-400">التحكم الدقيق في تحديد صلاحيات كل هوست فرعي (Secondary Host)</p>
+                                </div>
+                                <span class="text-xs bg-amber-500/10 border border-amber-500/30 text-amber-400 px-3 py-1 rounded-full font-mono">
+                                    Exclusive Control
+                                </span>
+                            </div>
+
+                            <!-- Hosts Management Table -->
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-right text-sm">
+                                    <thead>
+                                        <tr class="bg-gray-950 text-gray-400 border-b border-gray-800">
+                                            <th class="p-3">اسم المستخدم</th>
+                                            <th class="p-3">نوع الحساب</th>
+                                            <th class="p-3">صلاحيات الهوست الفرعي (Secondary Perms)</th>
+                                            <th class="p-3 text-center">التحكم بالصلاحيات</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="hosts-permissions-table-body" class="divide-y divide-gray-800/60">
+                                        <!-- Injected via JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="py-6 mt-8 border-t border-gray-800/60 text-center text-xs text-gray-500 font-mono">
+            <p>DEADSHOT.IO TOURNAMENT PLATFORM &copy; 2026 - ALL RIGHTS RESERVED</p>
+        </footer>
+    </div>
+
+    <!-- Frontend Application Logic -->
+    <script src="app.js"></script>
+</body>
+</html>

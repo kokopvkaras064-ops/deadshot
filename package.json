@@ -1,0 +1,13 @@
+{
+  "name": "deadshot-tournament",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Deadshot.io Tournament Platform - Node.js backend (node:sqlite) + static frontend",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=22.5"
+  }
+}
